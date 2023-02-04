@@ -1,0 +1,13 @@
+{
+    "trunkName":"trunk",
+    "name":"myRouter",
+    "ports":["ether4","ether5","ether3"],
+    "dsn":"8.8.8.8",
+    "vlans":[
+        {"name":"common", "id":5,"dns":"8.8.8.4"},
+        {"name":"first", "id":2,"allowedInterface":["common"]},
+        {"name":"second", "id":3,"allowedInterface":["common"]},
+        {"name":"third", "id":4,"allowedInterface":["common"],"allowedInterfaceList":["WAN"]},
+        {"name":"mngt", "id":99,"allowedInterfaceList":["WAN", "LAN"]}
+    ]
+}
