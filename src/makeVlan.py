@@ -31,10 +31,9 @@
 
 from io import TextIOWrapper
 import ipaddress
-import sys
-import os
 import json
 from datetime import datetime
+import commun
 
 
 trunkName:str="trunk"
@@ -42,16 +41,16 @@ f:TextIOWrapper=None
 
 
 def main():
-    descriptorFn = getArgv("-process", '/home/oec/DEV/Mikrotik/out/desc.json')
+    descriptorFn = commun.getArgv("-process", '/home/oec/DEV/Mikrotik/out/desc.json')
     if ( len(descriptorFn) == 0 ):
         print("-process is mandatory")
         return
-    fn = getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/pontcarreEcoles.rsc')
+    fn = commun.getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/pontcarreEcoles.rsc')
     if ( len(fn) == 0 ):
         print("-toFile is mandatory")
         return
 
-    descriptor = dataLoad(descriptorFn)
+    descriptor = commun.dataLoad(descriptorFn)
     if ( len(descriptor) == 0 ):
         print("file %s is empty" % (descriptorFn) )
         return
@@ -125,26 +124,6 @@ def main():
     f.close()
     return
 
-
-def getArgv(name:str, default:str="") -> str:
-	for i in range(len(sys.argv)-1):
-		if sys.argv[i] == name:
-			return sys.argv[i+1]
-	return default
-
-#load data file content
-def dataLoad(file:str) -> str:
-	res = ""
-	if os.path.exists(file) == False:
-		return res
-	f = open(file, 'r')
-	lines = f.readlines()
-	f.close()
-	for line in lines:
-		val = line.strip('\n')
-		val = val.strip('\r')
-		res = res + val
-	return res
 
 
 def write(s:str)->None:

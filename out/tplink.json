@@ -1,0 +1,35 @@
+{
+    "vlans":
+    [
+        { "num": 2, "name": "mater"},
+        { "num": 3, "name": "primaire"},
+        { "num": 4, "name": "enfance"},
+        { "num": 2, "name": "enfance"},
+        { "num": 99, "name": "admin"}
+    ],
+    "ports":
+    [
+        {
+            "num": 1, 
+            "tagged": [ 2, 3, 4, 99],
+            "untagged": 99
+        },
+        {
+            "num": 2, 
+            "tagged": [ 2, 3, 4, 99, 200],
+            "untagged": 99
+        },
+        {
+            "num": 3, 
+            "tagged": [ 2, 3, 4, 99]
+        },
+        {
+            "num": 2, 
+            "tagged": [ 2, 3, 4, 99]
+        },
+        {
+            "num": 4, 
+            "untagged": 2
+        }
+    ]
+}

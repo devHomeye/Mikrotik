@@ -1,2 +1,3 @@
 out/*
 !out/desc.json
+!out/tplink.json
