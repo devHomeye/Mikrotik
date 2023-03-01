@@ -1,3 +1,4 @@
 out/*
-!out/desc.json
+!out/routeur.json
 !out/tplink.json
+private/*

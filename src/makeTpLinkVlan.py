@@ -12,6 +12,7 @@
 #--             "name": num du vlan
 #--         }
 #--      ],
+#--      "trunk":[ liste des vlans],
 #--      "ports": tableau des ports
 #--      [
 #--          {
@@ -21,6 +22,8 @@
 #--                 numero du vlan
 #--             ],
 #--             "untagged": id du vlan, 1 si absent
+#--             "hybrid": id du vlan, idem untagged, mais supprimer ce vlan des tagged si present
+#--             "trunk": true pour utliser les vlans definis dans trunk
 #--          },
 #--      ]
 #--  }
@@ -58,12 +61,16 @@ def main():
 
     # vlan names
     vlanName={}
-    # liste des ports par vlan
-    vlansPorts={} 
+    # liste des ports par vlan tagged
+    vlansTaggedPorts={} 
+    # liste des ports par vlan untagged
+    vlansUntaggetPorts={} 
     # pvid liste des ports par vlan
     vlansPvid={}
-    # liste des ports 
+    # liste des ports (numero)
     ports=[]
+    # vlans du trunk
+    trunk=[]
 
     for vlansTag in j["vlans"]:
         vlanId = vlansTag["num"]
@@ -72,26 +79,53 @@ def main():
         else:
             vlanName[vlanId] = vlansTag["name"]
 
+    trunk = j.get("trunk", [])
+
     for portTag in j["ports"]:
-        taggedVlanList = portTag.get("tagged", [])
         port = portTag["num"]
-        if port in ports:
-            print("port %d already defined in ports, skipping" % (port) )
+        reason = valid(portTag)
+        if reason!="":
+            print("port %d incompatbles tags found: %s, skipping" % (port, reason))
         else:
-            ports.append(port)
-            # liste des ports pour un vlan untagged
-            vlanUntagged = portTag.get("untagged", 1)
-            value = vlansPvid.get(vlanUntagged, [])
-            value.append(port)
-            vlansPvid[vlanUntagged] = value
-            # liste des ports pour un vlan tagged
-            for tag in taggedVlanList:
-                if tag in vlanName:
-                    value = vlansPorts.get(tag, [])
-                    value.append(port)
-                    vlansPorts[tag] = value
+            if port in ports:
+                print("port %d already defined in ports, skipping" % (port) )
+            else:
+                # generation du modèle TP-Link
+                ports.append(port)
+                # vlan tagged
+                # is trunk required
+                vlanTagged = []
+                useTrunk = portTag.get("trunk", False)
+                if useTrunk==True:
+                    vlanTagged = trunk
                 else:
-                    print("vlan %d not defined in vlans for port %d, skipping" % (tag, port) )
+                    vlanTagged = portTag.get("tagged", [])
+
+                # vlan untagged
+                vlanUntagged = 0
+                if isPresent(portTag, "untagged")==True:
+                    vlanUntagged = portTag["untagged"]
+                elif isPresent(portTag, "hybrid")==True:
+                    vlanUntagged = portTag["hybrid"]
+                    vlanTagged.remove(vlanUntagged)
+
+
+                print("processing port %d" % (port) )
+
+                # liste des ports pour le vlan untagged
+                if (vlanUntagged > 0):
+                    value = vlansPvid.get(vlanUntagged, [])
+                    value.append(port)
+                    vlansPvid[vlanUntagged] = value
+
+                # liste des ports pour un vlan tagged
+                updateList(port, vlansTaggedPorts, vlanTagged, vlanName)
+
+                # liste des ports pour un vlan untagged
+                temp = [vlanUntagged]
+                updateList(port, vlansUntaggetPorts, temp, vlanName)
+
+
     
 
     global f
@@ -112,15 +146,14 @@ def main():
     for vlanId, name in vlanName.items():
         write("  vlan : %d name: %s" % (vlanId, name) )
         tmp=""
-        for port in vlansPorts[vlanId]:
+        for port in vlansTaggedPorts[vlanId]:
             tmp = tmp + ' ' + str(port) + ','
         write("    tagged : %s" % (tmp))
         tmp=""
-        if vlanId in vlansPvid:
-            for port in vlansPvid[vlanId]:
+        if (vlanId in vlansUntaggetPorts):
+            for port in vlansUntaggetPorts[vlanId]:
                 # tagged est prioritaire si présent dans les 2 listes
-                if not port in vlansPorts[vlanId]:
-                    tmp = tmp + ' ' + str(port) + ','
+                tmp = tmp + ' ' + str(port) + ','
             if len(tmp) > 0:
                 write("    untagged : %s" % (tmp))
         write( "" )
@@ -138,7 +171,6 @@ def main():
         write("    ports : %s" % (tmp))
         write( "" )
 
-
     f.close()
 
 
@@ -146,5 +178,30 @@ def write(s:str)->None:
     f.write('%s\n' % (s) )
 
 
+def updateList(port, mainList, portList, validVlans):
+    for tag in portList:
+        if tag in validVlans:
+            value = mainList.get(tag, [])
+            value.append(port)
+            mainList[tag] = value
+        else:
+            print("vlan %d not defined in vlans for port %d, skipping" % (tag, port) )
+
+
+def valid(port)->str:
+    isHybrid   = isPresent(port, "hybrid")
+    isTrunk    = isPresent(port, "trunk")
+    isTagged   = isPresent(port, "tagged")
+    isUntagged = isPresent(port, "untagged")
+    invalid=""
+    if (isTrunk and isTagged):
+        invalid="trunk/tagged"
+    elif (isHybrid and isUntagged):
+        invalid = "hybrid/untagged"
+    return invalid
+
+def isPresent(json, tag):
+    rc = tag in json
+    return rc
 
 main()

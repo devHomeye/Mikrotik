@@ -1,27 +1,32 @@
 {
+    "desc":"configuration maternelle",
     "vlans":
     [
         { "num": 2, "name": "mater"},
         { "num": 3, "name": "primaire"},
         { "num": 4, "name": "enfance"},
-        { "num": 2, "name": "enfance"},
+        { "num": 5, "name": "commun"},
+        { "num": 98, "name": "domotique"},
         { "num": 99, "name": "admin"}
     ],
+    "trunk":[ 2, 3, 4, 5, 98, 99],
     "ports":
     [
         {
             "num": 1, 
-            "tagged": [ 2, 3, 4, 99],
-            "untagged": 99
+            "trunk": true,
+            "hybrid": 99
         },
         {
             "num": 2, 
-            "tagged": [ 2, 3, 4, 99, 200],
+            "tagged": [ 2, 99],
             "untagged": 99
         },
         {
             "num": 3, 
-            "tagged": [ 2, 3, 4, 99]
+            "tagged": [ 2, 3, 4, 99],
+            "untagged": 99,
+            "hybrid": 99
         },
         {
             "num": 2, 

@@ -45,7 +45,7 @@ def main():
     if ( len(descriptorFn) == 0 ):
         print("-process is mandatory")
         return
-    fn = commun.getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/pontcarreEcoles.rsc')
+    fn = commun.getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/router.rsc')
     if ( len(fn) == 0 ):
         print("-toFile is mandatory")
         return
@@ -66,7 +66,7 @@ def main():
     if "dns" in j:
         dns=j["dns"]
 
-    setBasis(name=j["name"], fromFile=fn)
+    setBasis(name=j["name"], fromFile=descriptorFn)
 
     ports=[]
     if "ports" not in j:
@@ -177,7 +177,8 @@ def setVlan(
         tagged = tagged + "," + port
     write( ('/interface bridge vlan set [find bridge=%s vlan-ids=%d] tagged=%s' % (trunkName, id, tagged) ) )
 
-    write(  '#  vlan setup\n')
+    write(  '')
+    write(  '#  vlan setup')
     write( ("/interface vlan add interface=%s name=%s_vl vlan-id=%s" % (trunkName, name, id) ) )
     write( ("/ip address add interface=%s_vl address=%s/%d" % (name, interface.network[1], netmask) ) )
     write( ("/ip pool add name=%s_pool ranges=%s-%s" % (name, ipPoolStart, interface.network.broadcast_address-1) ) )
@@ -186,7 +187,8 @@ def setVlan(
 
     write( ("/interface list member add interface=%s_vl list=LAN" % (name) ) )
 
-    write(  '#  firewall rules\n')
+    write(  '')
+    write(  '#  firewall rules')
     for elt in allowedList:            
         write( ("/ip firewall filter add chain=forward action=accept in-interface=%s_vl out-interface=%s" % (name, elt) ) )
     for elt in allowedListList:            
