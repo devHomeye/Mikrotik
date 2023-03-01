@@ -13,27 +13,32 @@
     "ports":
     [
         {
-            "num": 1, 
+            "num": [1], 
             "trunk": true,
             "hybrid": 99
         },
         {
-            "num": 2, 
+            "num": [2], 
             "tagged": [ 2, 99],
+            "trunk": true,
             "untagged": 99
         },
         {
-            "num": 3, 
+            "num": [8], 
             "tagged": [ 2, 3, 4, 99],
             "untagged": 99,
             "hybrid": 99
         },
         {
-            "num": 2, 
+            "num": [5, 6], 
+            "trunk": true
+        },
+        {
+            "num": [2], 
             "tagged": [ 2, 3, 4, 99]
         },
         {
-            "num": 4, 
+            "num": [4], 
             "untagged": 2
         }
     ]
