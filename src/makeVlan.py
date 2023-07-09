@@ -34,21 +34,28 @@ import ipaddress
 import json
 from datetime import datetime
 import commun
+import os
 
 
 trunkName:str="trunk"
 f:TextIOWrapper=None
+comment:str=""
 
 
 def main():
-    descriptorFn = commun.getArgv("-process", '/home/oec/DEV/Mikrotik/out/desc.json')
+    descriptorFn = commun.getArgv("-process", '/home/oec/DEV/Mikrotik/private/routeurServeur.json')
     if ( len(descriptorFn) == 0 ):
         print("-process is mandatory")
         return
-    fn = commun.getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/router.rsc')
+    fn = commun.getArgv("-toFile", '')
     if ( len(fn) == 0 ):
-        print("-toFile is mandatory")
-        return
+        fn, ext = os.path.splitext(descriptorFn)
+        fn = fn + '.rsc'
+        print("result will be writen to %s" % (fn) )
+
+    global comment
+    comment = commun.getArgv("-comment", "ohmi")
+
 
     descriptor = commun.dataLoad(descriptorFn)
     if ( len(descriptor) == 0 ):
@@ -139,8 +146,8 @@ def setBasis(name:str, fromFile:str):
     write(  '#######################################################################################')
 
     write( ('/system identity set name="%s"' % (name) ) )
-    write( ('/interface bridge add name=%s protocol-mode=none vlan-filtering=no' % (trunkName) ) )
-    write( '/interface list add name=VLAN')
+    write( ('/interface bridge add name=%s protocol-mode=none vlan-filtering=no comment="%s"' % (trunkName, comment) ) )
+    write( ('/interface list add name=VLAN comment="%s"' % (comment)) )
 
     write('')
     return
@@ -173,28 +180,28 @@ def setVlan(
         pvid=""
         if mngtVlan != -1:
             pvid = "pvid=" + str(mngtVlan)
-        write( ("/interface bridge port set bridge=%s %s [find interface=%s]" % (trunkName, pvid, port) ) )
+        write( ('/interface bridge port set bridge=%s %s [find interface=%s] comment="%s"' % (trunkName, pvid, port, comment) ) )
         tagged = tagged + "," + port
-    write( ('/interface bridge vlan set [find bridge=%s vlan-ids=%d] tagged=%s' % (trunkName, id, tagged) ) )
+    write( ('/interface bridge vlan set [find bridge=%s vlan-ids=%d] tagged=%s comment="%s"' % (trunkName, id, tagged, comment) ) )
 
     write(  '')
     write(  '#  vlan setup')
-    write( ("/interface vlan add interface=%s name=%s_vl vlan-id=%s" % (trunkName, name, id) ) )
-    write( ("/ip address add interface=%s_vl address=%s/%d" % (name, interface.network[1], netmask) ) )
-    write( ("/ip pool add name=%s_pool ranges=%s-%s" % (name, ipPoolStart, interface.network.broadcast_address-1) ) )
-    write( ("/ip dhcp-server add address-pool=%s_pool interface=%s_vl name=%s_dhcp disabled=no" % (name, name, name) ) )
-    write( ("/ip dhcp-server network add address=%s dns-server=%s gateway=%s" % (interface.network, dns, interface.network[1]) ) )
+    write( ('/interface vlan add interface=%s name=%s_vl vlan-id=%s comment="%s"' % (trunkName, name, id, comment) ) )
+    write( ('/ip address add interface=%s_vl address=%s/%d comment="%s"' % (name, interface.network[1], netmask, comment) ) )
+    write( ('/ip pool add name=%s_pool ranges=%s-%s comment="%s"' % (name, ipPoolStart, interface.network.broadcast_address-1, comment) ) )
+    write( ('/ip dhcp-server add address-pool=%s_pool interface=%s_vl name=%s_dhcp disabled=no comment="%s"' % (name, name, name, comment) ) )
+    write( ('/ip dhcp-server network add address=%s dns-server=%s gateway=%s comment="%s"' % (interface.network, dns, interface.network[1], comment) ) )
 
-    write( ("/interface list member add interface=%s_vl list=LAN" % (name) ) )
+    write( ('/interface list member add interface=%s_vl list=LAN comment="%s"' % (name, comment) ) )
 
     write(  '')
     write(  '#  firewall rules')
     for elt in allowedList:            
-        write( ("/ip firewall filter add chain=forward action=accept in-interface=%s_vl out-interface=%s" % (name, elt) ) )
+        write( ('/ip firewall filter add chain=forward action=accept in-interface=%s_vl out-interface=%s comment="%s"' % (name, elt, comment) ) )
     for elt in allowedListList:            
-        write( ("/ip firewall filter add chain=forward action=accept in-interface=%s_vl out-interface-list=%s" % (name, elt) ) )
+        write( ('/ip firewall filter add chain=forward action=accept in-interface=%s_vl out-interface-list=%s comment="%s"' % (name, elt, comment) ) )
 
-    write( ("/ip firewall filter add chain=forward action=drop in-interface=%s_vl" % (name) ) )
+    write( ('/ip firewall filter add chain=forward action=drop in-interface=%s_vl comment="%s"' % (name, comment) ) )
 
     write(  '\n')
     return

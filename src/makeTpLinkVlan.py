@@ -37,7 +37,7 @@ import ipaddress
 import json
 from datetime import datetime
 import commun
-
+import os
 
 f:TextIOWrapper=None
 
@@ -47,10 +47,12 @@ def main():
     if ( len(descriptorFn) == 0 ):
         print("-process is mandatory")
         return
-    fn = commun.getArgv("-toFile", '/home/oec/DEV/Mikrotik/out/tplink.txt')
+    fn = commun.getArgv("-toFile", '')
     if ( len(fn) == 0 ):
-        print("-toFile is mandatory")
-        return
+        fn, ext = os.path.splitext(descriptorFn)
+        fn = fn + '.txt'
+        print("result will be writen to %s" % (fn) )
+
 
     descriptor = commun.dataLoad(descriptorFn)
     if ( len(descriptor) == 0 ):
