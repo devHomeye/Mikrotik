@@ -3,16 +3,16 @@
 #--  
 #--   structure du fichier json
 #--  {
-# --     "psw" : mot de passe du routeur
-#--      "wireguardAdd": adresse interface wireguard,
-#--      "trunkName": nom du bridge (defaut trunk),
+#--      "reqVer": version d'utilitaire requise (pour info)
 #--      "name": nom du routeur,
-#--      "ports": tableau des ports physiques rattaché au trunk (ex. ["ether4","ether5","ether3"]),
+# --     "psw" : mot de passe du routeur
+#--      "overrideDefaultLan": modifie la configuration réseau par defaut (defaut : false)
+#--      "trunkName": nom du bridge (defaut bridge),
+#--      "wireguardAdd": adresse interface wireguard,
 #--      "dsn": liste des dns a utiliser (@ip uniquement defaut "8.8.8.8"),
 #--      "allowedInterfaceList": liste des interfaces sortantes autorisée par défaut
 #--      "allowedVlan": liste des vlans autorisés par défaut
 #--      "ipPoolStart": debut du pool "local", la fin est broadcast-1 (defaut 192.168.87.30)
-#--      "mngtVlan": id du vlan défaut=-1> conserver l'existant,
 #--      "vlans": tableau des vlans a créer
 #--      [
 #--          {
@@ -28,6 +28,14 @@
 #--                                      défaut : WAN pour accès internet
 #--          },
 #--      ]
+#--      "ports": tableau des ports physiques rattaché à des vlans
+#--     [
+#--          {
+#--             "type": type de port access (nécessite la référence à un vlan), trunk (tous les vlans)
+#--             "vlan": nom du vlan (doit exister dans vlans)
+#--             "interfaces": tableau des interfaces qui implementent cette description (type/vlan)
+#--          },
+#--     ]
 #--  }
 #--  
 #-- work based on : https://forum.mikrotik.com/viewtopic.php?t=143620&sid=66528b8a74f80428d7c31d0c48966f56 
@@ -109,10 +117,9 @@ class VlansData:
             self.netmask=24
 
 
-trunkName:str="bridge"
 f:TextIOWrapper=None
 comment:str=""
-common:dict
+common:dict={}
 
 
 def main():
@@ -136,12 +143,11 @@ def main():
         return
 
     j = json.loads(descriptor)
-    # global trunkName
-    # trunkName = j["trunkName"]
 
     global f
     f = open(fn, 'w')
 
+    global common
     common=getCommon(j)
     cartouche(descriptorFn)
     setLan(j)
@@ -159,7 +165,7 @@ def main():
     genSecurity(ports=ports)
 
     write('')
-    write('/interface bridge set BR1 vlan-filtering=yes' )
+    write('/interface bridge set %s vlan-filtering=yes' % (common["trunkName"]) )
     # write('/ip/firewall/filter/set [find comment="ohmi config"] disabled=yes' )
     f.close()
 
@@ -179,6 +185,14 @@ def getCommon(j:dict)->dict:
         c["allowedVlan"] = j["allowedVlan"]
     else:
         c["allowedVlan"] = []
+    if "trunkName" in j:
+        c["trunkName"] = j["trunkName"]
+    else:
+        c["trunkName"] = "bridge"
+    if "overrideDefaultLan" in j:
+        c["overrideDefaultLan"] = j["overrideDefaultLan"]
+    else:
+        c["overrideDefaultLan"]=False
     return c
 
 def explodePorts(j:dict, vlans:dict)->dict:
@@ -187,9 +201,9 @@ def explodePorts(j:dict, vlans:dict)->dict:
         print('tag "ports" is mandatory')
         return ports
     for elt in j["ports"]:
-        if "num" in elt:
+        if "interfaces" in elt:
             data=PortData(elt, vlans=vlans)
-            for num in elt["num"]:
+            for num in elt["interfaces"]:
                 if data.valid==False:
                     print("port:%s, invalid data type:%s, vlan:%s, cause:%s" % (num, data.type, data.vlan, data.cause) )
                 else:
@@ -238,7 +252,7 @@ def genIngres(vlans:dict, ports:dict)->bool:
         pvid=""
         if v.type == "access":
             pvid="pvid=%s" % (vlans[v.vlan].id)  
-        write( '  set bridge=%s %s [find interface=%s]' % (trunkName, pvid, k) )
+        write( '  set bridge=%s %s [find interface=%s]' % (common["trunkName"], pvid, k) )
 
 def genEgres(vlans:dict, ports:dict)->bool:
     write('')
@@ -253,7 +267,7 @@ def genEgres(vlans:dict, ports:dict)->bool:
             trunkPorts = "%s,%s" % (trunkPorts, k)
 
     for k,v in vlans.items():
-        write( '  add interface=%s vlan-ids=%s tagged=%s%s' % (trunkName, v.id, trunkName, trunkPorts) )
+        write( '  add bridge=%s vlan-ids=%s tagged=%s%s' % (common["trunkName"], v.id, common["trunkName"], trunkPorts) )
 
 def genVlans(vlans:dict)->bool:
     write('')
@@ -269,7 +283,7 @@ def genVlans(vlans:dict)->bool:
             else:
                 dns = d
         write( '# %s - %s' % (k, v.id) )
-        write( '/interface vlan add interface=%s name=%s_vl vlan-id=%s comment="%s"' % (trunkName, k, v.id, comment) )
+        write( '/interface vlan add interface=%s name=%s_vl vlan-id=%s comment="%s"' % (common["trunkName"], k, v.id, comment) )
         write( '/ip address add interface=%s_vl address=%s/%d comment="%s"' % (k, interface.network[1], v.netmask, comment) )
         write( '/ip pool add name=%s_pool ranges=%s-%s comment="%s"' % (k, v.ipPoolStart, interface.network.broadcast_address-1, comment) )
         write( '/ip dhcp-server add address-pool=%s_pool interface=%s_vl name=%s_dhcp disabled=no comment="%s"' % (k, k, k, comment) )
@@ -299,11 +313,11 @@ def genSecurity(ports:dict)->bool:
     write( '/interface bridge port')
     for k,v in ports.items():
         if v.type == "trunk":
-            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-only-vlan-tagged [find interface=%s]' % (trunkName, k) )
+            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-only-vlan-tagged [find interface=%s]' % (common["trunkName"], k) )
         elif v.type == "access":
-            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-only-untagged-and-priority-tagged [find interface=%s]' % (trunkName, k) )
+            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-only-untagged-and-priority-tagged [find interface=%s]' % (common["trunkName"], k) )
         else:
-            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-all [find interface=%s]' % (trunkName, k) )
+            write( '  set bridge=%s ingress-filtering=yes frame-types=admit-all [find interface=%s]' % (common["trunkName"], k) )
 
 
 def write(s:str)->None:
@@ -355,6 +369,9 @@ def setBasis(j:dict)->bool:
 
 # reset lan
 def setLan(j:dict)->bool:
+    if common["overrideDefaultLan"] == False:
+        return
+    
     ipPoolstart=""
     if "ipPoolStart" in j:
         ipPoolstart=j["ipPoolStart"]
